@@ -1,9 +1,29 @@
 import { neon } from '@neondatabase/serverless';
-import { env } from 'cloudflare:workers';
 import { tokenHash } from './password.mjs';
-export type User={id:string;dni:string;name:string;department:string;role:'admin'|'resident';status:string;must_change_password:boolean};
-export const publicUserFields='id,dni,name,department,role,status,must_change_password';
-export function db(){const url=(env as unknown as Record<string,string>).DATABASE_URL || process.env.DATABASE_URL;if(!url)throw new Error('Database unavailable');return neon(url);}
+
+export type User = {
+  id: string;
+  dni: string;
+  name: string;
+  department: string;
+  role: 'admin' | 'resident';
+  status: string;
+  must_change_password: boolean;
+};
+
+export const publicUserFields =
+  'id,dni,name,department,role,status,must_change_password';
+
+export function db() {
+  const url = process.env.DATABASE_URL;
+
+  if (!url) {
+    throw new Error('Database unavailable');
+  }
+
+  return neon(url);
+}
+
 export class HttpError extends Error{constructor(public status:number,message:string){super(message);}}
 export function fail(status:number,message:string):never{throw new HttpError(status,message);}
 export function json(data:unknown,status=200,headers:Record<string,string>={}){return Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});}
