@@ -6,13 +6,15 @@ export type User = {
   dni: string;
   name: string;
   department: string;
+  email: string | null;
+  phone: string | null;
   role: 'admin' | 'resident';
   status: string;
   must_change_password: boolean;
 };
 
 export const publicUserFields =
-  'id,dni,name,department,role,status,must_change_password';
+  'id,dni,name,department,email,phone,role,status,must_change_password';
 
 export function db() {
   const url = process.env.DATABASE_URL;
@@ -28,12 +30,14 @@ export class HttpError extends Error{constructor(public status:number,message:st
 export function fail(status:number,message:string):never{throw new HttpError(status,message);}
 export function json(data:unknown,status=200,headers:Record<string,string>={}){return Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});}
 export function errorResponse(e:unknown){if(e instanceof HttpError)return json({error:e.message},e.status);const code=(e as {code?:string}).code;if(code==='23505')return json({error:'El turno ya está ocupado o los datos ya están registrados. Actualizá e intentá nuevamente.'},409);console.error('Portal request failed',code??(e instanceof Error?e.name:'unknown'));return json({error:'No se pudo completar la operación. Intentá nuevamente en unos momentos.'},503);}
-export async function currentUser(request:Request):Promise<User|null>{const token=request.headers.get('cookie')?.split(';').map(v=>v.trim()).find(v=>v.startsWith('riviera_session='))?.split('=')[1];if(!token||!/^\w{64}$/.test(token))return null;const sql=db();const rows=await sql`SELECT u.id,u.dni,u.name,u.department,u.role,u.status,u.must_change_password FROM riviera.users u JOIN riviera.sessions s ON u.id=s.user_id WHERE s.token_hash=${await tokenHash(token)} AND s.expires_at>now() AND u.status='active'`;return (rows[0] as User)??null;}
+export async function currentUser(request:Request):Promise<User|null>{const token=request.headers.get('cookie')?.split(';').map(v=>v.trim()).find(v=>v.startsWith('riviera_session='))?.split('=')[1];if(!token||!/^\w{64}$/.test(token))return null;const sql=db();const rows=await sql`SELECT u.id,u.dni,u.name,u.department,u.email,u.phone,u.role,u.status,u.must_change_password FROM riviera.users u JOIN riviera.sessions s ON u.id=s.user_id WHERE s.token_hash=${await tokenHash(token)} AND s.expires_at>now() AND u.status='active'`;return (rows[0] as User)??null;}
 export async function requireUser(r:Request,admin=false){const u=await currentUser(r);if(!u)fail(401,'Ingresá a tu cuenta para continuar.');if(admin&&u.role!=='admin')fail(403,'Esta sección es exclusiva de la administración.');return u;}
 export function checkOrigin(r:Request){const origin=r.headers.get('origin');if(!origin||origin!==new URL(r.url).origin)fail(403,'Origen de solicitud no permitido.');if(!r.headers.get('content-type')?.includes('application/json'))fail(415,'Formato no permitido.');}
 export async function body(r:Request){checkOrigin(r);const raw=await r.text();if(raw.length>25000)fail(413,'La solicitud es demasiado extensa.');try{return JSON.parse(raw);}catch{fail(400,'Solicitud inválida.');}}
 export function textField(value:unknown,label:string,min=1,max=100){if(typeof value!=='string'||value.trim().length<min||value.trim().length>max)fail(400,`${label}: ingresá entre ${min} y ${max} caracteres.`);return value.trim();}
 export function validDni(value:unknown){const dni=textField(value,'DNI',7,12).replace(/[.\s]/g,'');if(!/^\d{7,8}$/.test(dni))fail(400,'El DNI debe tener 7 u 8 dígitos.');return dni;}
+export function validEmail(value:unknown){const email=textField(value,'Email',5,254).toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail(400,'Ingresá un email válido.');return email;}
+export function validPhone(value:unknown){const phone=textField(value,'Teléfono de contacto',6,30);if(!/^[+()\d\s-]+$/.test(phone))fail(400,'Ingresá un teléfono válido.');return phone;}
 export function validPassword(value:unknown){if(typeof value!=='string'||value.length<12||value.length>128)fail(400,'La contraseña debe tener entre 12 y 128 caracteres.');return value;}
 export function validDate(value:unknown){if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString().slice(0,10)!==value)fail(400,'Fecha inválida.');return value;}
 export function validId(value:unknown){if(typeof value!=='string'||! /^[0-9a-f-]{36}$/i.test(value))fail(400,'Identificador inválido.');return value;}

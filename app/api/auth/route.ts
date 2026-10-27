@@ -1,4 +1,4 @@
-import { db,body,currentUser,requireUser,json,errorResponse,fail,textField,validDni,validPassword,rateLimit } from '@/lib/server';
+import { db,body,currentUser,requireUser,json,errorResponse,fail,textField,validDni,validEmail,validPhone,validPassword,rateLimit } from '@/lib/server';
 import {hashPassword,verifyPassword,randomToken,tokenHash} from '@/lib/password.mjs';
 const cookie=(r:Request,token:string,age=604800)=>`riviera_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${age}${new URL(r.url).protocol==='https:'?'; Secure':''}`;
 export async function GET(r:Request){try{return json({user:await currentUser(r)});}catch(e){return errorResponse(e);}}
@@ -12,10 +12,10 @@ export async function POST(r:Request){try{
  await rateLimit(`auth-ip:${ip}`,50);await rateLimit(`auth:${await tokenHash(login)}`,10);
  let user;
  if(b.action==='register'){
-  const name=textField(b.name,'Nombre y apellido',3,100),department=textField(b.department,'Departamento',1,30).toUpperCase(),password=validPassword(b.password);
+  const name=textField(b.name,'Nombre y apellido',3,100),department=textField(b.department,'Departamento',1,30).toUpperCase(),email=validEmail(b.email),phone=validPhone(b.phone),password=validPassword(b.password);
   if(b.acceptRules!==true)fail(400,'Debés aceptar el reglamento para registrarte.');
   const hash=await hashPassword(password);
-  const rows=await sql`INSERT INTO riviera.users(dni,name,department,password_hash) VALUES(${login},${name},${department},${hash}) RETURNING id,dni,name,department,role,status,must_change_password`;
+  const rows=await sql`INSERT INTO riviera.users(dni,name,department,email,phone,password_hash) VALUES(${login},${name},${department},${email},${phone},${hash}) RETURNING id,dni,name,department,email,phone,role,status,must_change_password`;
   user=rows[0];
  }else{
   const password=textField(b.password,'Contraseña',1,128);

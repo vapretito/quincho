@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Balcones de la Riviera | Reservas del quincho",
   description: "Calendario de disponibilidad, reservas del quincho y reglamento de Balcones de la Riviera.",
+  manifest: "/manifest.webmanifest",
   other: {
     "codex-preview": "development",
   },
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
   },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Quincho Riviera" },
 };
 
 export default function RootLayout({

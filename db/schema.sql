@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS riviera.users (
  must_change_password boolean NOT NULL DEFAULT false,
  created_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE riviera.users ADD COLUMN IF NOT EXISTS email varchar(254);
+ALTER TABLE riviera.users ADD COLUMN IF NOT EXISTS phone varchar(30);
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON riviera.users(email) WHERE email IS NOT NULL;
 CREATE TABLE IF NOT EXISTS riviera.sessions (
  token_hash text PRIMARY KEY,
  user_id uuid NOT NULL REFERENCES riviera.users(id) ON DELETE CASCADE,
@@ -39,6 +42,10 @@ CREATE TABLE IF NOT EXISTS riviera.bookings (
  cancelled_by uuid REFERENCES riviera.users(id),
  CHECK(status <> 'confirmed' OR user_id IS NOT NULL)
 );
+ALTER TABLE riviera.bookings ADD COLUMN IF NOT EXISTS attended boolean;
+ALTER TABLE riviera.bookings DROP CONSTRAINT IF EXISTS bookings_status_check;
+ALTER TABLE riviera.bookings ADD CONSTRAINT bookings_status_check CHECK(status IN('confirmed','waitlisted','blocked','cancelled'));
+DROP INDEX IF EXISTS riviera.bookings_unique_slot;
 CREATE UNIQUE INDEX IF NOT EXISTS bookings_unique_slot ON riviera.bookings(date,slot) WHERE status IN('confirmed','blocked');
 CREATE INDEX IF NOT EXISTS bookings_user_idx ON riviera.bookings(user_id,date);
 CREATE TABLE IF NOT EXISTS riviera.audit (
@@ -53,3 +60,32 @@ CREATE TABLE IF NOT EXISTS riviera.rate_limits (
  count integer NOT NULL DEFAULT 1,
  reset_at timestamptz NOT NULL
 );
+CREATE TABLE IF NOT EXISTS riviera.penalty_messages (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ user_id uuid NOT NULL REFERENCES riviera.users(id),
+ booking_id uuid REFERENCES riviera.bookings(id),
+ description varchar(1000) NOT NULL,
+ created_by uuid NOT NULL REFERENCES riviera.users(id),
+ created_at timestamptz NOT NULL DEFAULT now(),
+ read_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS penalty_messages_user_idx ON riviera.penalty_messages(user_id,created_at DESC);
+CREATE TABLE IF NOT EXISTS riviera.notifications (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ user_id uuid NOT NULL REFERENCES riviera.users(id) ON DELETE CASCADE,
+ type text NOT NULL CHECK(type IN('penalty','waitlist')),
+ title varchar(160) NOT NULL,
+ body varchar(1000) NOT NULL,
+ url varchar(500) NOT NULL DEFAULT '/#mine',
+ read_at timestamptz,
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS notifications_user_idx ON riviera.notifications(user_id,created_at DESC);
+CREATE TABLE IF NOT EXISTS riviera.push_subscriptions (
+ endpoint text PRIMARY KEY,
+ user_id uuid NOT NULL REFERENCES riviera.users(id) ON DELETE CASCADE,
+ p256dh varchar(500) NOT NULL,
+ auth varchar(500) NOT NULL,
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON riviera.push_subscriptions(user_id);
