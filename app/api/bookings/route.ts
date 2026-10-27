@@ -30,5 +30,8 @@ export async function POST(r:Request){try{
  AND (${status}='blocked' OR EXISTS(SELECT 1 FROM riviera.users WHERE id=${target} AND status='active'))
  RETURNING id,status) INSERT INTO riviera.audit(actor_id,action,target_id) SELECT ${u.id},CASE WHEN status='waitlisted' THEN 'Reserva en lista de espera' WHEN status='blocked' THEN 'Bloqueo de turno' ELSE 'Reserva de turno' END,id::text FROM created RETURNING target_id`;
  if(!changed.length)fail(409,'La fecha está fuera del plazo permitido, el turno ya comenzó o el residente está suspendido.');
- const created=await sql`SELECT status FROM riviera.bookings WHERE id=${changed[0].target_id}`;return json({ok:true,id:changed[0].target_id,status:created[0]?.status},201);
+ const created=await sql`SELECT status FROM riviera.bookings WHERE id=${changed[0].target_id}`;
+ const accepted=created[0]?.status==='confirmed';
+ await notifyUser(target,'booking',{title:accepted?'Reserva confirmada':'Solicitud en lista de espera',body:accepted?`Tu reserva para el ${date} a las ${slot}:00 fue aceptada.`:`Tu solicitud para el ${date} a las ${slot}:00 quedó en lista de espera. La administración te avisará si la acepta.`,url:'/#mine'});
+ return json({ok:true,id:changed[0].target_id,status:created[0]?.status},201);
  }catch(e){return errorResponse(e);}}

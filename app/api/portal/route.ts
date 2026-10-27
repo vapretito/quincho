@@ -2,16 +2,6 @@ import {db,currentUser,json,errorResponse,fail} from '@/lib/server';
 export async function GET(r:Request){try{
  const month=new URL(r.url).searchParams.get('month');if(!month||!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))fail(400,'Mes inválido.');
  const sql=db(),user=await currentUser(r);
- await sql`UPDATE riviera.bookings b SET status='confirmed'
- WHERE b.id IN (
-   SELECT DISTINCT ON (w.date,w.slot) w.id
-   FROM riviera.bookings w
-   WHERE w.status='waitlisted'
-     AND w.date=(now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
-     AND (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::time >= time '08:00'
-     AND NOT EXISTS(SELECT 1 FROM riviera.bookings taken WHERE taken.date=w.date AND taken.slot=w.slot AND taken.status IN('confirmed','blocked'))
-   ORDER BY w.date,w.slot,w.created_at
- )`;
  const [settings,slots,mine,messages,notifications,clock]=await Promise.all([
   sql`SELECT rules,advance_days,cancellation_hours,updated_at FROM riviera.settings WHERE id=1`,
   sql`SELECT date::text,slot,status FROM riviera.bookings WHERE date>=${month+'-01'}::date AND date<${month+'-01'}::date+interval '1 month' AND status IN('confirmed','blocked') ORDER BY date,slot`,

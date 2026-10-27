@@ -73,7 +73,7 @@ CREATE INDEX IF NOT EXISTS penalty_messages_user_idx ON riviera.penalty_messages
 CREATE TABLE IF NOT EXISTS riviera.notifications (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  user_id uuid NOT NULL REFERENCES riviera.users(id) ON DELETE CASCADE,
- type text NOT NULL CHECK(type IN('penalty','waitlist')),
+ type text NOT NULL CHECK(type IN('penalty','waitlist','booking')),
  title varchar(160) NOT NULL,
  body varchar(1000) NOT NULL,
  url varchar(500) NOT NULL DEFAULT '/#mine',
@@ -81,6 +81,8 @@ CREATE TABLE IF NOT EXISTS riviera.notifications (
  created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS notifications_user_idx ON riviera.notifications(user_id,created_at DESC);
+ALTER TABLE riviera.notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+ALTER TABLE riviera.notifications ADD CONSTRAINT notifications_type_check CHECK(type IN('penalty','waitlist','booking'));
 CREATE TABLE IF NOT EXISTS riviera.push_subscriptions (
  endpoint text PRIMARY KEY,
  user_id uuid NOT NULL REFERENCES riviera.users(id) ON DELETE CASCADE,

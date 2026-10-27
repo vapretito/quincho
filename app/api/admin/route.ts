@@ -36,6 +36,14 @@ export async function POST(r:Request){try{
   if(!rows.length)fail(404,'Reserva no encontrada.');await sql.transaction([sql`INSERT INTO riviera.penalty_messages(user_id,booking_id,description,created_by) VALUES(${rows[0].user_id},${bookingId},${description},${u.id})`,sql`INSERT INTO riviera.audit(actor_id,action,target_id) VALUES(${u.id},'Multa informada al residente',${bookingId})`]);
   await notifyUser(rows[0].user_id,'penalty',{title:'Nueva multa informada',body:`La administración registró una multa por tu reserva del ${rows[0].date} a las ${rows[0].slot}:00.`,url:'/#mine'});return json({ok:true});
  }
+ if(b.action==='acceptWaitlist'){
+  const id=validId(b.id);
+  const accepted=await sql`UPDATE riviera.bookings w SET status='confirmed' WHERE w.id=${id} AND w.status='waitlisted' AND NOT EXISTS(SELECT 1 FROM riviera.bookings occupied WHERE occupied.date=w.date AND occupied.slot=w.slot AND occupied.status IN('confirmed','blocked')) RETURNING w.user_id,w.date::text,w.slot`;
+  if(!accepted.length)fail(409,'No se puede aceptar esta solicitud porque el turno ya está ocupado o ya no está en espera.');
+  await sql`INSERT INTO riviera.audit(actor_id,action,target_id) VALUES(${u.id},'Reserva de lista de espera aceptada',${id})`;
+  await notifyUser(accepted[0].user_id,'booking',{title:'Reserva aceptada',body:`La administración confirmó tu reserva para el ${accepted[0].date} a las ${accepted[0].slot}:00.`,url:'/#mine'});
+  return json({ok:true});
+ }
  if(b.action==='resetPassword'){
   const id=validId(b.id);
   const password=validPassword(b.password),hash=await hashPassword(password);
