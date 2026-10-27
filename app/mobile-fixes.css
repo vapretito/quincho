@@ -1,0 +1,9 @@
+/* Kept separate so these mobile actions override the compact calendar styles. */
+.page-footer .pwa-actions{position:fixed;z-index:80;right:28px;bottom:28px}
+.page-footer .notification-button{position:fixed;z-index:80;right:28px;bottom:28px;box-shadow:0 4px 16px #193d5826}
+@media(max-width:767px){
+  .page-footer{display:block;padding:0}
+  .page-footer>span{display:none}
+  .page-footer .pwa-actions{right:14px;bottom:84px}
+  .page-footer .notification-button{right:14px;bottom:84px}
+}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./mobile-fixes.css";
 
 export const metadata: Metadata = {
   title: "Balcones de la Riviera | Reservas del quincho",
