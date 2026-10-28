@@ -6,6 +6,15 @@ export async function POST(r:Request){try{
  const b=await body(r),sql=db();
  if(b.action==='logout'){const token=r.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith('riviera_session='))?.split('=')[1];if(token)await sql`DELETE FROM riviera.sessions WHERE token_hash=${await tokenHash(token)}`;return json({ok:true},200,{'Set-Cookie':cookie(r,'',0)});}
  if(b.action==='password'){const u=await requireUser(r);const current=textField(b.currentPassword,'Contraseña actual',1,128);const next=validPassword(b.password);const rows=await sql`SELECT password_hash FROM riviera.users WHERE id=${u.id}`;if(!await verifyPassword(current,rows[0].password_hash))fail(400,'La contraseña actual no es correcta.');const hash=await hashPassword(next);await sql.transaction([sql`UPDATE riviera.users SET password_hash=${hash},must_change_password=false WHERE id=${u.id}`,sql`DELETE FROM riviera.sessions WHERE user_id=${u.id}`,sql`INSERT INTO riviera.audit(actor_id,action,target_id) VALUES(${u.id},'Cambio de contraseña',${u.id})`]);return json({ok:true},200,{'Set-Cookie':cookie(r,'',0)});}
+ if(b.action==='recover'){
+  const dni=validDni(b.dni),email=validEmail(b.email),phone=validPhone(b.phone),password=validPassword(b.password),ip=r.headers.get('cf-connecting-ip')||'local';
+  await rateLimit(`recovery-ip:${ip}`,8,60);await rateLimit(`recovery:${await tokenHash(dni)}`,5,60);
+  const users=await sql`SELECT id FROM riviera.users WHERE dni=${dni} AND email=${email} AND phone=${phone} AND status='active'`;
+  if(!users.length)fail(400,'No se pudieron verificar los datos de la cuenta.');
+  const hash=await hashPassword(password),id=users[0].id;
+  await sql.transaction([sql`UPDATE riviera.users SET password_hash=${hash},must_change_password=false WHERE id=${id}`,sql`DELETE FROM riviera.sessions WHERE user_id=${id}`,sql`INSERT INTO riviera.audit(actor_id,action,target_id) VALUES(${id},'Recuperación autónoma de contraseña',${id})`]);
+  return json({ok:true});
+ }
  if(!['login','register'].includes(b.action))fail(400,'Acción inválida.');
  const login=b.action==='register'?validDni(b.dni):textField(b.dni,'DNI o usuario',1,30).replace(/[.\s]/g,'').toLowerCase();
  const ip=r.headers.get('cf-connecting-ip')||'local';

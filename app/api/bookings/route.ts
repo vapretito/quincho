@@ -1,5 +1,6 @@
 import {db,body,requireUser,json,errorResponse,fail,validDate,validId,textField} from '@/lib/server';
 import {notifyUser} from '@/lib/notifications';
+import {bookingSlots} from '@/lib/schedule';
 export async function POST(r:Request){try{
  const b=await body(r),u=await requireUser(r),sql=db();if(u.must_change_password)fail(403,'Cambiá tu contraseña temporal antes de continuar.');
  if(b.action==='cancel'){
@@ -14,7 +15,7 @@ export async function POST(r:Request){try{
  if(!['reserve','block'].includes(b.action))fail(400,'Acción inválida.');
  if(b.action==='block'&&u.role!=='admin')fail(403,'Solo la administración puede bloquear turnos.');
  if(b.action==='reserve'&&b.acceptRules!==true)fail(400,'Debés aceptar el reglamento.');
- const date=validDate(b.date),slot=Number(b.slot);if(![12,20].includes(slot))fail(400,'Turno inválido.');
+ const date=validDate(b.date),slot=Number(b.slot);if(!bookingSlots.includes(slot as 11|20))fail(400,'Turno inválido.');
  const target=u.role==='admin'&&b.userId?validId(b.userId):u.id;
  const note=b.note?textField(b.note,'Observación',0,500):'';
  const status=b.action==='block'?'blocked':'confirmed';
