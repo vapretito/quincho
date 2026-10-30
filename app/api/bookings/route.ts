@@ -17,11 +17,14 @@ export async function POST(r:Request){try{
  if(b.action==='reserve'&&b.acceptRules!==true)fail(400,'Debés aceptar el reglamento.');
  const date=validDate(b.date),slot=Number(b.slot);if(!bookingSlots.includes(slot as 11|20))fail(400,'Turno inválido.');
  const target=u.role==='admin'&&b.userId?validId(b.userId):u.id;
+ const existing=await sql`SELECT id FROM riviera.bookings WHERE date=${date}::date AND slot=${slot} AND user_id=${target}::uuid AND status IN('confirmed','waitlisted') LIMIT 1`;
+ if(existing.length)fail(409,'Ya tenés una reserva o una solicitud en lista de espera para este turno.');
  const note=b.note?textField(b.note,'Observación',0,500):'';
  const status=b.action==='block'?'blocked':'confirmed';
  const changed=await sql`WITH created AS(INSERT INTO riviera.bookings(date,slot,user_id,status,note,created_by)
  SELECT ${date}::date,${slot},CASE WHEN ${status}='blocked' THEN NULL ELSE ${target}::uuid END,
  CASE WHEN ${status}='blocked' THEN 'blocked'
+ WHEN EXISTS(SELECT 1 FROM riviera.bookings occupied WHERE occupied.date=${date}::date AND occupied.slot=${slot} AND occupied.status IN('confirmed','blocked')) THEN 'waitlisted'
  WHEN EXISTS(SELECT 1 FROM riviera.bookings prior WHERE prior.user_id=${target}::uuid AND prior.status='confirmed' AND date_trunc('month',prior.date)=date_trunc('month',${date}::date)) THEN 'waitlisted'
  ELSE 'confirmed' END,${note},${u.id}::uuid
  FROM riviera.settings s WHERE s.id=1
@@ -33,6 +36,6 @@ export async function POST(r:Request){try{
  if(!changed.length)fail(409,'La fecha está fuera del plazo permitido, el turno ya comenzó o el residente está suspendido.');
  const created=await sql`SELECT status FROM riviera.bookings WHERE id=${changed[0].target_id}`;
  const accepted=created[0]?.status==='confirmed';
- await notifyUser(target,'booking',{title:accepted?'Reserva confirmada':'Solicitud en lista de espera',body:accepted?`Tu reserva para el ${date} a las ${slot}:00 fue aceptada.`:`Tu solicitud para el ${date} a las ${slot}:00 quedó en lista de espera. La administración te avisará si la acepta.`,url:'/#mine'});
+ await notifyUser(target,'booking',{title:accepted?'Reserva confirmada':'Solicitud en lista de espera',body:accepted?`Tu reserva para el ${date} a las ${slot}:00 fue aceptada.`:`Tu solicitud para el ${date} a las ${slot}:00 quedó en lista de espera. Si el turno sigue libre cuando falten cinco horas, se confirmará automáticamente según el orden de solicitud.`,url:'/#mine'});
  return json({ok:true,id:changed[0].target_id,status:created[0]?.status},201);
  }catch(e){return errorResponse(e);}}

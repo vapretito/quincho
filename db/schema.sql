@@ -51,6 +51,7 @@ ALTER TABLE riviera.bookings ADD CONSTRAINT bookings_status_check CHECK(status I
 DROP INDEX IF EXISTS riviera.bookings_unique_slot;
 CREATE UNIQUE INDEX IF NOT EXISTS bookings_unique_slot ON riviera.bookings(date,slot) WHERE status IN('confirmed','blocked');
 CREATE INDEX IF NOT EXISTS bookings_user_idx ON riviera.bookings(user_id,date);
+CREATE INDEX IF NOT EXISTS bookings_waitlist_promotion_idx ON riviera.bookings(date,slot,created_at) WHERE status='waitlisted';
 CREATE TABLE IF NOT EXISTS riviera.audit (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  actor_id uuid REFERENCES riviera.users(id),

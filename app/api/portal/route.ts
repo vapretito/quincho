@@ -1,6 +1,8 @@
 import {db,currentUser,json,errorResponse,fail} from '@/lib/server';
+import {promoteEligibleWaitlist} from '@/lib/waitlist';
 export async function GET(r:Request){try{
  const month=new URL(r.url).searchParams.get('month');if(!month||!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))fail(400,'Mes inválido.');
+ await promoteEligibleWaitlist();
  const sql=db(),user=await currentUser(r);
  const [settings,slots,mine,messages,notifications,clock]=await Promise.all([
   sql`SELECT rules,advance_days,cancellation_hours,updated_at FROM riviera.settings WHERE id=1`,
