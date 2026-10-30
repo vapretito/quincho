@@ -1,7 +1,4 @@
 {
-    "framework": null,
-  "buildCommand": "npx vite build",
-  "crons": [
-    {"path": "/api/waitlist-promote", "schedule": "*/5 * * * *"}
-  ]
-  }
+  "framework": null,
+  "buildCommand": "npx vite build"
+}

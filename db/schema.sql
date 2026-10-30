@@ -52,6 +52,21 @@ DROP INDEX IF EXISTS riviera.bookings_unique_slot;
 CREATE UNIQUE INDEX IF NOT EXISTS bookings_unique_slot ON riviera.bookings(date,slot) WHERE status IN('confirmed','blocked');
 CREATE INDEX IF NOT EXISTS bookings_user_idx ON riviera.bookings(user_id,date);
 CREATE INDEX IF NOT EXISTS bookings_waitlist_promotion_idx ON riviera.bookings(date,slot,created_at) WHERE status='waitlisted';
+-- Conserva la solicitud activa más antigua si existían duplicados de versiones anteriores.
+WITH ranked AS (
+ SELECT id,row_number() OVER (
+   PARTITION BY user_id,date,slot
+   ORDER BY CASE status WHEN 'confirmed' THEN 0 ELSE 1 END,created_at,id
+ ) AS position
+ FROM riviera.bookings
+ WHERE user_id IS NOT NULL AND status IN('confirmed','waitlisted')
+)
+UPDATE riviera.bookings b
+SET status='cancelled',cancelled_at=COALESCE(b.cancelled_at,now())
+FROM ranked r
+WHERE b.id=r.id AND r.position>1;
+CREATE UNIQUE INDEX IF NOT EXISTS bookings_user_active_slot_unique
+ ON riviera.bookings(user_id,date,slot) WHERE status IN('confirmed','waitlisted');
 CREATE TABLE IF NOT EXISTS riviera.audit (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  actor_id uuid REFERENCES riviera.users(id),
